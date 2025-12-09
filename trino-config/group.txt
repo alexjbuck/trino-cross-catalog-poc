@@ -1,0 +1,3 @@
+admin:admin,superuser,poweruser
+analyst:analyst,alice,bob,poweruser
+public:admin,analyst,alice,bob,guest,public,poweruser

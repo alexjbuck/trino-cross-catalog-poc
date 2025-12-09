@@ -84,6 +84,8 @@ services:
       - "8080:8080"
     volumes:
       - ./trino-config/catalog:/etc/trino/catalog
+      - ./trino-config/group-provider.properties:/etc/trino/group-provider.properties
+      - ./trino-config/group.txt:/etc/trino/group.txt
     depends_on:
       postgres:
         condition: service_healthy

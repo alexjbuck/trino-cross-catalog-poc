@@ -70,7 +70,7 @@ echo "6. Verifying Iceberg data table..."
 $TRINO --execute "SELECT * FROM iceberg.demo.data ORDER BY date"
 echo ""
 
-echo "7. Testing cross-catalog join (the key test!)..."
+echo "7. Testing cross-catalog join (inline query)..."
 echo "   Running: SELECT from iceberg.demo.data JOIN postgres.public.requirements"
 $TRINO --execute "
 SELECT d.date, d.data, r.requirement
@@ -80,51 +80,63 @@ ORDER BY d.date, r.requirement
 "
 echo ""
 
-echo "8. Testing the access control query pattern..."
-echo "   Simulating user with groups: ['admin', 'analyst', 'public']"
-echo ""
-echo "   This query returns rows where the user has ALL required groups:"
+echo "8. Creating STORED VIEW in Iceberg catalog (THE KEY TEST!)..."
+echo "   This view references both iceberg.demo.data AND postgres.public.requirements"
 $TRINO --execute "
+CREATE OR REPLACE VIEW iceberg.demo.filtered_data AS
 SELECT d.date, d.data
 FROM iceberg.demo.data d
 WHERE NOT EXISTS (
     SELECT 1
     FROM postgres.public.requirements r
     WHERE r.date = d.date
-    AND r.requirement NOT IN ('admin', 'analyst', 'public')
+    AND NOT contains(current_groups(), r.requirement)
 )
-ORDER BY d.date
 "
-echo ""
-
-echo "9. Testing with different user groups..."
-echo "   Simulating user with groups: ['analyst', 'public'] (no admin)"
-$TRINO --execute "
-SELECT d.date, d.data
-FROM iceberg.demo.data d
-WHERE NOT EXISTS (
-    SELECT 1
-    FROM postgres.public.requirements r
-    WHERE r.date = d.date
-    AND r.requirement NOT IN ('analyst', 'public')
-)
-ORDER BY d.date
-"
+echo "   View created successfully!"
 echo ""
 
-echo "10. Testing with minimal groups..."
-echo "    Simulating user with groups: ['public'] only"
-$TRINO --execute "
-SELECT d.date, d.data
-FROM iceberg.demo.data d
-WHERE NOT EXISTS (
-    SELECT 1
-    FROM postgres.public.requirements r
-    WHERE r.date = d.date
-    AND r.requirement NOT IN ('public')
-)
-ORDER BY d.date
-"
+echo "=== Testing STORED VIEW with different users (via file group provider) ==="
+echo ""
+echo "Group configuration (group.txt):"
+echo "  admin:admin,superuser,poweruser"
+echo "  analyst:analyst,alice,bob,poweruser"
+echo "  public:admin,analyst,alice,bob,guest,public,poweruser"
+echo ""
+
+echo "9. User 'admin' - groups: [admin, public]"
+echo "   Checking current_groups():"
+trino --server http://localhost:8080 --user admin --execute "SELECT current_groups()"
+echo "   Querying stored view:"
+trino --server http://localhost:8080 --user admin --execute "SELECT * FROM iceberg.demo.filtered_data ORDER BY date"
+echo ""
+
+echo "10. User 'alice' - groups: [analyst, public]"
+echo "    Checking current_groups():"
+trino --server http://localhost:8080 --user alice --execute "SELECT current_groups()"
+echo "    Querying stored view:"
+trino --server http://localhost:8080 --user alice --execute "SELECT * FROM iceberg.demo.filtered_data ORDER BY date"
+echo ""
+
+echo "11. User 'guest' - groups: [public]"
+echo "    Checking current_groups():"
+trino --server http://localhost:8080 --user guest --execute "SELECT current_groups()"
+echo "    Querying stored view:"
+trino --server http://localhost:8080 --user guest --execute "SELECT * FROM iceberg.demo.filtered_data ORDER BY date"
+echo ""
+
+echo "12. User 'superuser' - groups: [admin] (no public!)"
+echo "    Checking current_groups():"
+trino --server http://localhost:8080 --user superuser --execute "SELECT current_groups()"
+echo "    Querying stored view:"
+trino --server http://localhost:8080 --user superuser --execute "SELECT * FROM iceberg.demo.filtered_data ORDER BY date"
+echo ""
+
+echo "13. User 'poweruser' - groups: [admin, analyst, public] (has all three)"
+echo "    Checking current_groups():"
+trino --server http://localhost:8080 --user poweruser --execute "SELECT current_groups()"
+echo "    Querying stored view:"
+trino --server http://localhost:8080 --user poweruser --execute "SELECT * FROM iceberg.demo.filtered_data ORDER BY date"
 echo ""
 
 echo "=== Summary of Expected Results ==="
@@ -138,9 +150,11 @@ echo "  Jan 5: admin + analyst + public"
 echo "  Jan 6: secret"
 echo "  Jan 7: secret + admin"
 echo ""
-echo "Expected access:"
-echo "  User [admin,analyst,public]: Jan 1,2,3,4,5 (data: 100,200,300,400,500)"
-echo "  User [analyst,public]:       Jan 2,3       (data: 200,300)"
-echo "  User [public]:               Jan 3         (data: 300)"
+echo "Expected access (user -> groups -> visible dates):"
+echo "  poweruser [admin,analyst,public]: Jan 1,2,3,4,5 (data: 100,200,300,400,500)"
+echo "  admin     [admin,public]:         Jan 1,3       (data: 100,300)"
+echo "  alice     [analyst,public]:       Jan 2,3       (data: 200,300)"
+echo "  guest     [public]:               Jan 3         (data: 300)"
+echo "  superuser [admin]:                (none - missing 'public' for Jan 1)"
 echo ""
 echo "=== POC Complete ==="
