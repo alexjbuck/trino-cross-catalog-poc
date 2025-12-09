@@ -24,6 +24,10 @@ Views stored in the Iceberg catalog need to reference both catalogs for row-leve
 └─────────────────┘     └──────────────────┘     └─────────┘
 ```
 
+## Prerequisites
+
+- Docker (with compose)
+
 ## Quick Start
 
 ```bash
@@ -62,17 +66,28 @@ docker compose up -d
 | 2024-01-06 | 600  |
 | 2024-01-07 | 700  |
 
+**User groups** (trino-config/group.txt):
+| Group   | Members                     |
+|---------|-----------------------------|
+| admin   | admin, superuser, poweruser |
+| analyst | analyst, alice, bob, poweruser |
+| public  | admin, analyst, alice, bob, guest, public, poweruser |
+
 ## Expected Results
 
 User must have ALL requirements for a date to see that date's data.
 
-| User Groups              | Visible Dates     | Visible Data      |
-|--------------------------|-------------------|-------------------|
-| [admin, analyst, public] | Jan 1,2,3,4,5     | 100,200,300,400,500 |
-| [analyst, public]        | Jan 2,3           | 200,300           |
-| [public]                 | Jan 3             | 300               |
+| User      | Groups                   | Visible Dates | Visible Data        |
+|-----------|--------------------------|---------------|---------------------|
+| poweruser | [admin, analyst, public] | Jan 1,2,3,4,5 | 100,200,300,400,500 |
+| admin     | [admin, public]          | Jan 1,3       | 100,300             |
+| alice     | [analyst, public]        | Jan 2,3       | 200,300             |
+| guest     | [public]                 | Jan 3         | 300                 |
+| superuser | [admin]                  | Jan 1         | 100                 |
 
 ## Access Control Query Pattern
+
+The stored view `iceberg.demo.filtered_data` uses this pattern:
 
 ```sql
 SELECT d.date, d.data
@@ -85,13 +100,15 @@ WHERE NOT EXISTS (
 );
 ```
 
-The test script simulates this with hardcoded group lists since Trino OSS doesn't include a built-in file-based group provider.
+User groups are configured via Trino's file-based group provider (`trino-config/group.txt`).
 
 ## Files
 
 - `docker-compose.yml` - Service definitions
 - `init-postgres.sql` - Requirements table setup
-- `setup-iceberg.sql` - Iceberg table DDL (run manually or via test.sh)
-- `create-view.sql` - Cross-catalog view DDL
+- `setup-iceberg.sql` - Iceberg table DDL (reference)
+- `create-view.sql` - Cross-catalog view DDL (reference)
 - `test.sh` - Automated test script
 - `trino-config/catalog/` - Trino catalog configurations
+- `trino-config/group-provider.properties` - File group provider config
+- `trino-config/group.txt` - User to group mappings
