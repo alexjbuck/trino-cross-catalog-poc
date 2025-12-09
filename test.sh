@@ -15,20 +15,26 @@ done
 echo "   Trino is ready!"
 echo ""
 
-echo "2. Setting up Lakekeeper warehouse..."
+echo "2. Bootstrapping Lakekeeper..."
+curl -s -X POST http://localhost:8181/management/v1/bootstrap \
+  -H "Content-Type: application/json" \
+  -d '{"accept-terms-of-use": true}' || echo "   (may already be bootstrapped)"
+echo ""
+
+echo "3. Setting up Lakekeeper warehouse..."
 # Create warehouse in Lakekeeper via REST API
 curl -s -X POST http://localhost:8181/management/v1/warehouse \
   -H "Content-Type: application/json" \
   -d '{
     "warehouse-name": "demo",
-    "project-id": "00000000-0000-0000-0000-000000000000",
     "storage-profile": {
       "type": "s3",
       "bucket": "warehouse",
       "region": "us-east-1",
       "path-style-access": true,
       "endpoint": "http://minio:9000",
-      "flavor": "minio"
+      "flavor": "minio",
+      "sts-enabled": false
     },
     "storage-credential": {
       "type": "s3",

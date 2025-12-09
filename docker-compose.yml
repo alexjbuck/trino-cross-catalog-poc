@@ -58,9 +58,21 @@ services:
       timeout: 5s
       retries: 5
 
+  # Lakekeeper database migration
+  lakekeeper-migrate:
+    image: quay.io/lakekeeper/catalog:v0.10.0
+    command: ["migrate"]
+    environment:
+      LAKEKEEPER__PG_DATABASE_URL_READ: postgres://lakekeeper:lakekeeper@lakekeeper-db:5432/lakekeeper
+      LAKEKEEPER__PG_DATABASE_URL_WRITE: postgres://lakekeeper:lakekeeper@lakekeeper-db:5432/lakekeeper
+    depends_on:
+      lakekeeper-db:
+        condition: service_healthy
+
   # Lakekeeper Iceberg REST catalog
   lakekeeper:
-    image: quay.io/lakekeeper/catalog:latest
+    image: quay.io/lakekeeper/catalog:v0.10.0
+    command: ["serve"]
     environment:
       LAKEKEEPER__PG_DATABASE_URL_READ: postgres://lakekeeper:lakekeeper@lakekeeper-db:5432/lakekeeper
       LAKEKEEPER__PG_DATABASE_URL_WRITE: postgres://lakekeeper:lakekeeper@lakekeeper-db:5432/lakekeeper
@@ -68,12 +80,12 @@ services:
     ports:
       - "8181:8181"
     depends_on:
-      lakekeeper-db:
-        condition: service_healthy
+      lakekeeper-migrate:
+        condition: service_completed_successfully
       minio-init:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8181/health"]
+      test: ["CMD", "/home/nonroot/lakekeeper", "healthcheck"]
       interval: 5s
       timeout: 5s
       retries: 10
