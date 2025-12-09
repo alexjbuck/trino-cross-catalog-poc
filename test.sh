@@ -8,9 +8,9 @@ echo "=== Cross-Catalog View POC Test ==="
 echo ""
 
 echo "1. Waiting for Trino to be ready..."
-until $TRINO --execute "SELECT 1" > /dev/null 2>&1; do
-    echo "   Waiting..."
-    sleep 5
+until $TRINO --execute "SELECT 1" >/dev/null 2>&1; do
+  echo "   Waiting..."
+  sleep 5
 done
 echo "   Trino is ready!"
 echo ""
@@ -79,10 +79,11 @@ echo ""
 echo "7. Testing cross-catalog join (inline query)..."
 echo "   Running: SELECT from iceberg.demo.data JOIN postgres.public.requirements"
 $TRINO --execute "
-SELECT d.date, d.data, r.requirement
+SELECT d.date, d.data, array_agg(r.requirement ORDER BY r.requirement) AS requirements
 FROM iceberg.demo.data d
 JOIN postgres.public.requirements r ON d.date = r.date
-ORDER BY d.date, r.requirement
+GROUP BY d.date, d.data
+ORDER BY d.date
 "
 echo ""
 
@@ -157,10 +158,10 @@ echo "  Jan 6: secret"
 echo "  Jan 7: secret + admin"
 echo ""
 echo "Expected access (user -> groups -> visible dates):"
-echo "  poweruser [admin,analyst,public]: Jan 1,2,3,4,5 (data: 100,200,300,400,500)"
 echo "  admin     [admin,public]:         Jan 1,3       (data: 100,300)"
 echo "  alice     [analyst,public]:       Jan 2,3       (data: 200,300)"
 echo "  guest     [public]:               Jan 3         (data: 300)"
-echo "  superuser [admin]:                (none - missing 'public' for Jan 1)"
+echo "  superuser [admin]:                Jan 1         (data: 100)"
+echo "  poweruser [admin,analyst,public]: Jan 1,2,3,4,5 (data: 100,200,300,400,500)"
 echo ""
 echo "=== POC Complete ==="
