@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-# Use local trino CLI connecting to localhost:8080
-TRINO="trino --server http://localhost:8080"
+# Use trino CLI from the docker container
+TRINO="docker compose exec -T trino trino"
 
 echo "=== Cross-Catalog View POC Test ==="
 echo ""
@@ -113,37 +113,37 @@ echo ""
 
 echo "9. User 'admin' - groups: [admin, public]"
 echo "   Checking current_groups():"
-trino --server http://localhost:8080 --user admin --execute "SELECT current_groups()"
+docker compose exec -T trino trino --user admin --execute "SELECT current_groups()"
 echo "   Querying stored view:"
-trino --server http://localhost:8080 --user admin --execute "SELECT * FROM iceberg.demo.filtered_data ORDER BY date"
+docker compose exec -T trino trino --user admin --execute "SELECT * FROM iceberg.demo.filtered_data ORDER BY date"
 echo ""
 
 echo "10. User 'alice' - groups: [analyst, public]"
 echo "    Checking current_groups():"
-trino --server http://localhost:8080 --user alice --execute "SELECT current_groups()"
+docker compose exec -T trino trino --user alice --execute "SELECT current_groups()"
 echo "    Querying stored view:"
-trino --server http://localhost:8080 --user alice --execute "SELECT * FROM iceberg.demo.filtered_data ORDER BY date"
+docker compose exec -T trino trino --user alice --execute "SELECT * FROM iceberg.demo.filtered_data ORDER BY date"
 echo ""
 
 echo "11. User 'guest' - groups: [public]"
 echo "    Checking current_groups():"
-trino --server http://localhost:8080 --user guest --execute "SELECT current_groups()"
+docker compose exec -T trino trino --user guest --execute "SELECT current_groups()"
 echo "    Querying stored view:"
-trino --server http://localhost:8080 --user guest --execute "SELECT * FROM iceberg.demo.filtered_data ORDER BY date"
+docker compose exec -T trino trino --user guest --execute "SELECT * FROM iceberg.demo.filtered_data ORDER BY date"
 echo ""
 
 echo "12. User 'superuser' - groups: [admin] (no public!)"
 echo "    Checking current_groups():"
-trino --server http://localhost:8080 --user superuser --execute "SELECT current_groups()"
+docker compose exec -T trino trino --user superuser --execute "SELECT current_groups()"
 echo "    Querying stored view:"
-trino --server http://localhost:8080 --user superuser --execute "SELECT * FROM iceberg.demo.filtered_data ORDER BY date"
+docker compose exec -T trino trino --user superuser --execute "SELECT * FROM iceberg.demo.filtered_data ORDER BY date"
 echo ""
 
 echo "13. User 'poweruser' - groups: [admin, analyst, public] (has all three)"
 echo "    Checking current_groups():"
-trino --server http://localhost:8080 --user poweruser --execute "SELECT current_groups()"
+docker compose exec -T trino trino --user poweruser --execute "SELECT current_groups()"
 echo "    Querying stored view:"
-trino --server http://localhost:8080 --user poweruser --execute "SELECT * FROM iceberg.demo.filtered_data ORDER BY date"
+docker compose exec -T trino trino --user poweruser --execute "SELECT * FROM iceberg.demo.filtered_data ORDER BY date"
 echo ""
 
 echo "=== Summary of Expected Results ==="
